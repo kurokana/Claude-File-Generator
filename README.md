@@ -4,7 +4,7 @@
 
 Cukup paste kode JS yang dihasilkan Claude AI, klik Generate, dan file-mu siap diunduh. Format output bisa apa saja: `.docx`, `.drawio`, `.csv`, `.html`, `.xml`, dan lainnya — selama kode JS-mu menghasilkannya.
 
-🌐 **Akses publik:** [claudedoxc.prakpksi.my.id](http://claudedocx.prakpksi.my.id)
+🌐 **Akses publik:** [claudedocx.prakpksi.my.id](http://claudedocx.prakpksi.my.id)
 📦 **Repositori:** [github.com/kurokana/Claude-File-Generator](https://github.com/kurokana/Claude-File-Generator)
 
 ---
@@ -25,7 +25,7 @@ Cukup paste kode JS yang dihasilkan Claude AI, klik Generate, dan file-mu siap d
 ### Langkah 1 — Buka Website
 
 ```
-https://claudedoxc.prakpksi.my.id
+https://claudedocx.prakpksi.my.id
 ```
 
 ---
