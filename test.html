@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head><title>Test DOCX Generator</title></head>
+<body>
+<h1>DOCX Generator - E2E Test</h1>
+<pre id="log"></pre>
+<script src="docx.iife.js"></script>
+<script>
+function log(msg) {
+    document.getElementById('log').textContent += msg + '\n';
+    console.log(msg);
+}
+
+// Wait for docx to load
+setTimeout(async () => {
+    log('=== Starting E2E Test ===');
+    log('window.docx available: ' + (!!window.docx));
+    log('Packer available: ' + (!!window.docx?.Packer));
+    log('Document available: ' + (!!window.docx?.Document));
+
+    // Test: simulate executing user code via sandbox
+    const testCode = `
+const {
+    Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
+    HeadingLevel, AlignmentType, BorderStyle, WidthType, ShadingType,
+    LevelFormat, PageBreak, VerticalAlign
+} = require('docx');
+const fs = require('fs');
+
+const doc = new Document({
+    sections: [{
+        children: [
+            new Paragraph({
+                children: [new TextRun({ text: "Hello from browser sandbox!", bold: true, size: 28 })]
+            })
+        ]
+    }]
+});
+
+Packer.toBuffer(doc).then(buffer => {
+    fs.writeFileSync('test_output.docx', buffer);
+    console.log('Done - file size: ' + buffer.byteLength + ' bytes');
+});
+`;
+
+    // Setup sandbox
+    let downloadTriggered = false;
+    let downloadData = null;
+    let downloadName = '';
+    let resolveDownload;
+    const downloadPromise = new Promise(r => { resolveDownload = r; });
+
+    const mockFs = {
+        writeFileSync: (name, data) => {
+            downloadTriggered = true;
+            downloadName = name;
+            downloadData = data;
+            log('fs.writeFileSync called: ' + name + ' (' + data.byteLength + ' bytes)');
+            resolveDownload();
+        }
+    };
+
+    const mockRequire = (mod) => {
+        if (mod === 'docx') {
+            // Patch Packer.toBuffer for browser
+            const patchedDocx = {};
+            for (const key of Object.keys(window.docx)) {
+                patchedDocx[key] = window.docx[key];
+            }
+            patchedDocx.Packer = {
+                toBlob: (doc, opts) => window.docx.Packer.toBlob(doc, opts),
+                toBase64String: (doc, opts) => window.docx.Packer.toBase64String(doc, opts),
+                toBuffer: async (doc, opts) => {
+                    log('  [patch] Packer.toBuffer → Packer.toBlob (browser mode)');
+                    const blob = await window.docx.Packer.toBlob(doc, opts);
+                    const arrayBuffer = await blob.arrayBuffer();
+                    return new Uint8Array(arrayBuffer);
+                }
+            };
+            return patchedDocx;
+        }
+        if (mod === 'fs') return mockFs;
+        throw new Error('Module not found: ' + mod);
+    };
+
+    const mockConsole = {
+        log: (...args) => log('[script] ' + args.join(' ')),
+        error: (...args) => log('[script ERROR] ' + args.join(' ')),
+        warn: (...args) => log('[script WARN] ' + args.join(' ')),
+    };
+
+    try {
+        log('\n--- Executing test script ---');
+        const AsyncFunction = Object.getPrototypeOf(async function(){}).constructor;
+        const fn = new AsyncFunction('require', 'module', 'exports', 'console', testCode);
+        await fn(mockRequire, { exports: {} }, {}, mockConsole);
+
+        // Wait for async completion
+        await Promise.race([
+            downloadPromise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000))
+        ]);
+
+        log('\n--- Results ---');
+        log('Download triggered: ' + downloadTriggered);
+        log('File name: ' + downloadName);
+        log('File size: ' + (downloadData ? downloadData.byteLength : 0) + ' bytes');
+        log('Data type: ' + (downloadData ? downloadData.constructor.name : 'null'));
+        
+        if (downloadTriggered && downloadData && downloadData.byteLength > 0) {
+            log('\n✅ TEST PASSED - DOCX generated successfully!');
+            
+            // Actually download it
+            const blob = new Blob([downloadData], {
+                type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = downloadName;
+            a.textContent = 'Download ' + downloadName + ' (' + downloadData.byteLength + ' bytes)';
+            document.body.appendChild(a);
+        } else {
+            log('\n❌ TEST FAILED - No DOCX generated');
+        }
+    } catch (err) {
+        log('\n❌ TEST ERROR: ' + err.message);
+        log(err.stack);
+    }
+}, 2000);
+</script>
+</body>
+</html>
