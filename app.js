@@ -5,16 +5,9 @@
 
 document.addEventListener('DOMContentLoaded', () => {
     // ─── DOM Elements ─────────────────────────────────────────────
-    const dropZone = document.getElementById('drop-zone');
-    const dropZoneContent = document.getElementById('drop-zone-content');
-    const fileInput = document.getElementById('file-input');
-    const fileInfo = document.getElementById('file-info');
-    const fileName = document.getElementById('file-name');
-    const fileSize = document.getElementById('file-size');
-    const btnRemove = document.getElementById('btn-remove');
-    const codePreview = document.getElementById('code-preview');
-    const codePreviewContent = document.getElementById('code-preview-content');
-    const previewLines = document.getElementById('preview-lines');
+    const codeEditor = document.getElementById('code-editor');
+    const btnClearCode = document.getElementById('btn-clear-code');
+    const codeLineCount = document.getElementById('code-line-count');
     const btnGenerate = document.getElementById('btn-generate');
     const btnText = document.getElementById('btn-text');
     const btnLoading = document.getElementById('btn-loading');
@@ -24,101 +17,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const consoleOutput = document.getElementById('console-output');
     const btnClearConsole = document.getElementById('btn-clear-console');
 
-    // ─── State ────────────────────────────────────────────────────
-    let uploadedFileContent = null;
-    let uploadedFileName = null;
-
-    // ─── File Upload: Drag & Drop ─────────────────────────────────
-    dropZone.addEventListener('click', () => {
-        if (!uploadedFileContent) fileInput.click();
-    });
-
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dropZone.classList.add('drag-over');
-    });
-
-    dropZone.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dropZone.classList.remove('drag-over');
-    });
-
-    dropZone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        dropZone.classList.remove('drag-over');
-        const file = e.dataTransfer.files[0];
-        if (file) handleFile(file);
-    });
-
-    fileInput.addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (file) handleFile(file);
-    });
-
-    // ─── File Handler ─────────────────────────────────────────────
-    async function handleFile(file) {
-        if (!file.name.endsWith('.js')) {
-            logConsole('File harus berformat .js', 'error');
-            return;
-        }
-
-        try {
-            const text = await file.text();
-            uploadedFileContent = text;
-            uploadedFileName = file.name;
-
-            // Update UI
-            dropZone.classList.add('has-file');
-            dropZoneContent.classList.add('hidden');
-
-            fileName.textContent = file.name;
-            fileSize.textContent = formatFileSize(file.size);
-            fileInfo.classList.remove('hidden');
-
-            // Show code preview (first 15 lines)
-            const lines = text.split('\n');
-            const previewText = lines.slice(0, 15).join('\n');
-            codePreviewContent.textContent = previewText + (lines.length > 15 ? '\n...' : '');
-            previewLines.textContent = `${lines.length} baris`;
-            codePreview.classList.remove('hidden');
-
-            // Enable generate button
-            btnGenerate.disabled = false;
-
-            // Hide old status
-            hideStatus();
-
-            logConsole(`File "${file.name}" berhasil dimuat (${formatFileSize(file.size)}, ${lines.length} baris)`, 'success');
-        } catch (err) {
-            logConsole(`Gagal membaca file: ${err.message}`, 'error');
-        }
+    // ─── Input Code Handlers ──────────────────────────────────────
+    function updateCodeMetrics() {
+        const code = codeEditor.value;
+        const lines = code ? code.split('\n').length : 0;
+        codeLineCount.textContent = `${lines} baris`;
+        
+        // Enable generate button if there is text content
+        const hasContent = code.trim().length > 0;
+        btnGenerate.disabled = !hasContent;
     }
 
-    // ─── Remove File ──────────────────────────────────────────────
-    btnRemove.addEventListener('click', (e) => {
-        e.stopPropagation();
-        resetUpload();
-    });
-
-    function resetUpload() {
-        uploadedFileContent = null;
-        uploadedFileName = null;
-        fileInput.value = '';
-
-        dropZone.classList.remove('has-file');
-        dropZoneContent.classList.remove('hidden');
-        fileInfo.classList.add('hidden');
-        codePreview.classList.add('hidden');
-        btnGenerate.disabled = true;
+    codeEditor.addEventListener('input', () => {
+        updateCodeMetrics();
         hideStatus();
-    }
+    });
+
+    btnClearCode.addEventListener('click', () => {
+        codeEditor.value = '';
+        updateCodeMetrics();
+        hideStatus();
+        logConsole('Input kode JS dibersihkan.', 'system');
+    });
 
     // ─── Generate DOCX ───────────────────────────────────────────
     btnGenerate.addEventListener('click', async () => {
-        if (!uploadedFileContent) return;
+        const code = codeEditor.value;
+        if (!code.trim()) return;
 
         // Check docx library
         if (!window.docx) {
@@ -136,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
         logConsole('Mulai memproses script...', 'system');
 
         try {
-            await executeDocxScript(uploadedFileContent, uploadedFileName);
+            await executeDocxScript(code, 'editor.js');
         } catch (err) {
             logConsole(`Error: ${err.message}`, 'error');
             showStatus('error', `❌ Gagal: ${err.message}`);
