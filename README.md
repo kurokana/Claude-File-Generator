@@ -25,7 +25,7 @@ Cukup paste kode JS yang dihasilkan Claude AI, klik Generate, dan file-mu siap d
 ### Langkah 1 — Buka Website
 
 ```
-https://claudedocx.prakpksi.my.id
+http://claudedocx.prakpksi.my.id
 ```
 
 ---
